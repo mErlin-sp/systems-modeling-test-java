@@ -90,6 +90,34 @@ class Exponential extends Distribution {
     }
 }
 
+class Deterministic extends Distribution {
+    /**
+     * The Deterministic distribution.
+     * <p>
+     * Takes:
+     * - `value` the value to return
+     */
+
+    private final double value;
+
+    public Deterministic(double value) {
+        if (value < 0.0) {
+            throw new IllegalArgumentException("Deterministic distribution must sample positive numbers only.");
+        }
+        this.value = value;
+    }
+
+    @Override
+    public String toString() {
+        return "Deterministic: " + value;
+    }
+
+    @Override
+    public double sample(double t, int ind) {
+        return value;
+    }
+}
+
 class CombinedDistribution extends Distribution {
     /**
      * A distribution that combines the samples of two other distributions, `dist1`

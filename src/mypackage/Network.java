@@ -1,5 +1,6 @@
 package mypackage;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -7,7 +8,7 @@ import java.util.stream.Collectors;
 class ServiceCentre {
     int numberOfServers;
     int queueingCapacity;
-    Map<String, Double> classChangeMatrix;
+    List<Double> classChangeMatrix;
     boolean priorityPreempt;
     int psThreshold;
     Object serverPriorityFunction;
@@ -18,7 +19,7 @@ class ServiceCentre {
     public ServiceCentre(
             int numberOfServers,
             int queueingCapacity,
-            Map<String, Double> classChangeMatrix,
+            List<Double> classChangeMatrix,
             boolean priorityPreempt,
             int psThreshold,
             Object serverPriorityFunction,
@@ -36,26 +37,26 @@ class ServiceCentre {
 }
 
 class CustomerClass {
-    Map<String, Object> arrivalDistributions;
-    Map<String, Object> serviceDistributions;
-    Map<String, Object> batchingDistributions;
-    Object routing;
+    List<QueueInterface> arrivalDistributions;
+    List<QueueInterface> serviceDistributions;
+    List<?> batchingDistributions;
+    Map<String, List<List<Double>>> routing;
     int priorityClass;
-    Map<String, Object> baulkingFunctions;
-    Map<String, Object> renegingTimeDistributions;
-    Map<String, Object> renegingDestinations;
-    Map<String, Object> classChangeTimeDistributions;
+    List<?> baulkingFunctions;
+    List<?> renegingTimeDistributions;
+    List<?> renegingDestinations;
+    Map<String, ?> classChangeTimeDistributions;
 
     public CustomerClass(
-            Map<String, Object> arrivalDistributions,
-            Map<String, Object> serviceDistributions,
-            Map<String, Object> routing,
+            List<QueueInterface> arrivalDistributions,
+            List<QueueInterface> serviceDistributions,
+            Map<String, List<List<Double>>> routing,
             int priorityClass,
-            Map<String, Object> baulkingFunctions,
-            Map<String, Object> batchingDistributions,
-            Map<String, Object> renegingTimeDistributions,
-            Map<String, Object> renegingDestinations,
-            Map<String, Object> classChangeTimeDistributions
+            List<?> baulkingFunctions,
+            List<?> batchingDistributions,
+            List<?> renegingTimeDistributions,
+            List<?> renegingDestinations,
+            Map<String, ?> classChangeTimeDistributions
     ) {
         this.arrivalDistributions = arrivalDistributions;
         this.serviceDistributions = serviceDistributions;
@@ -81,28 +82,77 @@ class Network {
     boolean processBased;
 
     public Network(List<ServiceCentre> serviceCentres, Map<String, CustomerClass> customerClasses) {
+//        this.serviceCentres = serviceCentres;
+//        this.customerClasses = customerClasses;
+//        this.numberOfNodes = serviceCentres.size();
+//        this.numberOfClasses = customerClasses.size();
+//        this.customerClassNames = customerClasses.keySet().stream().sorted().toList();
+//        this.numberOfPriorityClasses = customerClasses.values().stream().map(clss -> clss.priorityClass).collect(Collectors.toSet()).size();
+//        this.priorityClassMapping = customerClasses.entrySet().stream()
+//                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().priorityClass));
+//
+//        for (int ndId = 0; ndId < this.numberOfNodes; ndId++) {
+//            int finalNdId = ndId;
+//            boolean hasReneging = customerClasses.values().stream()
+//                    .anyMatch(clss -> clss.renegingTimeDistributions.get(finalNdId) != null);
+//            this.serviceCentres.get(ndId).reneging = hasReneging;
+//        }
+//
+//        boolean hasClassChangeTime = customerClasses.values().stream()
+//                .flatMap(clss -> clss.classChangeTimeDistributions.stream())
+//                .anyMatch(dist -> dist != null);
+//
+//        for (ServiceCentre node : this.serviceCentres) {
+//            node.classChangeTime = hasClassChangeTime;
+//        }
+
         this.serviceCentres = serviceCentres;
         this.customerClasses = customerClasses;
         this.numberOfNodes = serviceCentres.size();
         this.numberOfClasses = customerClasses.size();
         this.customerClassNames = customerClasses.keySet().stream().sorted().toList();
         this.numberOfPriorityClasses = customerClasses.values().stream().map(clss -> clss.priorityClass).collect(Collectors.toSet()).size();
-        this.priorityClassMapping = customerClasses.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().priorityClass));
 
-        for (int ndId = 0; ndId < this.numberOfNodes; ndId++) {
-            int finalNdId = ndId;
-            boolean hasReneging = customerClasses.values().stream()
-                    .anyMatch(clss -> clss.renegingTimeDistributions.get(String.valueOf(finalNdId)) != null);
-            this.serviceCentres.get(ndId).reneging = hasReneging;
+        this.priorityClassMapping = new HashMap<>();
+        for (String clss : customerClasses.keySet()) {
+            priorityClassMapping.put(clss, customerClasses.get(clss).priorityClass);
         }
 
-        boolean hasClassChangeTime = customerClasses.values().stream()
-                .flatMap(clss -> clss.classChangeTimeDistributions.values().stream())
-                .anyMatch(dist -> dist != null);
-
-        for (ServiceCentre node : this.serviceCentres) {
-            node.classChangeTime = hasClassChangeTime;
+        for (int nd_id = 0; nd_id < serviceCentres.size(); nd_id++) {
+            boolean allRenegingTimeDistributionsAreNone = true;
+            for (CustomerClass clss : customerClasses.values()) {
+                if (clss.renegingTimeDistributions.get(nd_id) != null) {
+                    allRenegingTimeDistributionsAreNone = false;
+                    break;
+                }
+            }
+            serviceCentres.get(nd_id).reneging = !allRenegingTimeDistributionsAreNone;
         }
+
+        for (CustomerClass clss : customerClasses.values()) {
+            if (clss.classChangeTimeDistributions != null) {
+                for (Object dist : clss.classChangeTimeDistributions.values()) {
+                    if (dist != null) {
+                        for (ServiceCentre node : serviceCentres) {
+                            node.classChangeTime = true;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+//        for (int ndId = 0; ndId < numberOfNodes; ndId++) {
+//            if (customerClasses.values().stream().allMatch(clss -> clss.getRenegingTimeDistributions().get(ndId) == null)) {
+//                serviceCentres.get(ndId).setReneging(false);
+//            } else {
+//                serviceCentres.get(ndId).setReneging(true);
+//            }
+//        }
+//        if (customerClasses.values().stream().flatMap(clss -> clss.getClassChangeTimeDistributions().values().stream()).anyMatch(Objects::nonNull)) {
+//            serviceCentres.forEach(node -> node.setClassChangeTime(true));
+//        }
     }
 }
+
+
