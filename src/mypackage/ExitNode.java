@@ -15,11 +15,11 @@ public class ExitNode extends Node {
     public double next_event_date;
     public double node_capacity;
 
-    public ExitNode() {
+    public ExitNode(Simulation simulation, Class<? extends NodeTop> nodeType) {
         /**
          * Initialise the exit node.
          */
-        super(-1, null, ExitNode.class);
+        super(-1, simulation, nodeType);
         this.all_individuals = new ArrayList<>();
         this.number_of_individuals = 0;
         this.number_of_completed_individuals = 0;
@@ -36,6 +36,7 @@ public class ExitNode extends Node {
         return "Exit Node";
     }
 
+    @Override
     public void accept(Individual next_individual, boolean completed) {
         /**
          * Adds individual to the list of completed individuals.
@@ -47,7 +48,8 @@ public class ExitNode extends Node {
         }
     }
 
-    public void update_next_event_date() {
+    @Override
+    public void updateNextEventDate() {
         /**
          * Finds the time of the next event at this node
          * Just passes as next_event_date always set to

@@ -9,7 +9,7 @@ public class Simulation {
     private Class<?> node_class;
     private Class<?> arrival_node_class;
     private Class<?> individual_class;
-    private Class<?> server_class;
+    Class<? extends Server> server_class;
     private boolean exact = false;
     private String name = "Simulation";
     //    private DeadlockDetector deadlock_detector = new NoDetection();
@@ -25,7 +25,7 @@ public class Simulation {
     //    private StateTracker statetracker;
     private Map<String, Double> times_dictionary;
     private Map<String, Double> times_to_deadlock;
-    private boolean unchecked_blockage = false;
+    boolean unchecked_blockage = false;
     private List<Map<String, String>> all_records;
 
     public Simulation(Network network) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
@@ -50,7 +50,7 @@ public class Simulation {
         this.nodes = new ArrayList<>();
         this.nodes.add(this.ArrivalNodeType.getDeclaredConstructor(Simulation.class, Class.class).newInstance(this, ArrivalNodeType));
         this.nodes.addAll(this.transitive_nodes);
-        this.nodes.add(new ExitNode());
+        this.nodes.add(new ExitNode(this,ExitNode.class));
 
         this.active_nodes = this.nodes.subList(0, this.nodes.size() - 1);
         this.nodes.getFirst().initialise();
@@ -65,7 +65,7 @@ public class Simulation {
 //        this.times_to_deadlock = new HashMap<>();
     }
 
-    public void simulateUntilMaxTime(double maxSimulationTime, boolean progressBar) {
+    public void simulateUntilMaxTime(double maxSimulationTime, boolean progressBar) throws Exception {
         Node nextActiveNode = findNextActiveNode();
         current_time = nextActiveNode.next_event_date;
 
@@ -75,7 +75,10 @@ public class Simulation {
 //        }
 
         while (current_time < maxSimulationTime) {
+            System.out.println("Current Time: " + current_time);
+
             nextActiveNode = eventAndReturnNextnode(nextActiveNode);
+            System.out.println("next active node: " + nextActiveNode.toString());
 //            statetracker.timestamp();
 
 //            if (progressBar) {
@@ -108,7 +111,7 @@ public class Simulation {
     }
 
 
-    public Node eventAndReturnNextnode(Node nextActiveNode) {
+    public Node eventAndReturnNextnode(Node nextActiveNode) throws Exception {
         nextActiveNode.haveEvent();
         for (Node node : transitive_nodes) {
             node.updateNextEventDate();
@@ -118,8 +121,10 @@ public class Simulation {
 
     public Node findNextActiveNode() {
         double mindate = Double.POSITIVE_INFINITY;
-        ArrayList<Node> nextActiveNodes = new ArrayList<>();
+        List<Node> nextActiveNodes = new ArrayList<>();
         for (Node nd : active_nodes) {
+            System.out.println(nd.toString());
+            System.out.println(nd.next_event_date);
             if (nd.next_event_date < mindate) {
                 mindate = nd.next_event_date;
                 nextActiveNodes = new ArrayList<>();
@@ -146,7 +151,11 @@ public class Simulation {
         return individuals;
     }
 
-    public List<Map<String, String>> getAllRecords(ArrayList<String> only) {
+    public List<Map<String, String>> getAllRecords() {
+        return getAllRecords(Arrays.stream(new String[]{"service", "baulk", "rejection", "renege", "interrupted service"}).toList());
+    }
+
+    public List<Map<String, String>> getAllRecords(List<String> only) {
         List<Map<String, String>> records = new ArrayList<>();
         for (Individual individual : getAllIndividuals()) {
             for (Map<String, String> record : individual.data_records) {
@@ -210,7 +219,7 @@ public class Simulation {
         }
     }
 
-    public void set_classes(Class<? extends Node> node_class, Class<? extends Node> arrival_node_class, Class<?> individual_class, Class<?> server_class) {
+    public void set_classes(Class<? extends Node> node_class, Class<? extends Node> arrival_node_class, Class<?> individual_class, Class<? extends Server> server_class) {
         this.ArrivalNodeType = Objects.requireNonNullElse(arrival_node_class, ArrivalNode.class);
 
         if (node_class != null) {

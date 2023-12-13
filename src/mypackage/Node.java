@@ -1,5 +1,6 @@
 package mypackage;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -11,10 +12,14 @@ interface BaulkingFunction {
     double baulking_function(double i);
 }
 
+interface ServiceDiscipline {
+    Individual choose(List<Individual> inds);
+}
+
 public class Node extends NodeTop {
     Simulation simulation;
     private PriorityFunction server_priority_function;
-    private Object service_discipline;
+    private ServiceDiscipline service_discipline;
     private String next_event_type;
     private Schedule schedule;
     int c;
@@ -24,19 +29,19 @@ public class Node extends NodeTop {
     int node_capacity;
     private Map<String, List<Double>> transition_row;
     private Map<String, Map<String, Double>> class_change;
-    private List<List<Individual>> individuals;
-    int number_of_individuals;
+    private List<List<Individual>> individuals = new ArrayList<>();
+    int number_of_individuals = 0;
     private int number_in_service;
     int id_number;
     Map<String, BaulkingFunction> baulking_functions;
-    private List<Double> overtime;
-    private List<List<Integer>> blocked_queue;
-    private int len_blocked_queue;
-    private List<Server> servers;
+    private List<Double> overtime = new ArrayList<>();
+    private List<Map<Integer, Integer>> blocked_queue = new ArrayList<>();
+    private int len_blocked_queue = 0;
+    private List<Server> servers = new ArrayList<>();
     private int highest_id;
     //    private DeadlockDetector deadlock_detector;
     private double priority_preempt = -1;
-    private List<?> interrupted_individuals;
+    private List<Individual> interrupted_individuals;
     private int number_interrupted_individuals;
     private List<Double> all_servers_total;
     private List<Double> all_servers_busy;
@@ -94,7 +99,6 @@ public class Node extends NodeTop {
             }
         }
 //        this.class_change = node.classChangeMatrix;
-        this.individuals = new ArrayList<>();
         for (int i = 0; i < simulation.network.numberOfPriorityClasses; i++) {
             this.individuals.add(new ArrayList<>());
         }
@@ -142,7 +146,11 @@ public class Node extends NodeTop {
 
     public List<Individual> getAllIndividuals() {
         if (this.simulation.network.numberOfPriorityClasses == 1) {
-            return this.individuals.getFirst();
+            if (!this.individuals.isEmpty()) {
+                return this.individuals.getFirst();
+            } else {
+                return new ArrayList<>();
+            }
         }
         return flatten_list(this.individuals);
     }
@@ -163,7 +171,7 @@ public class Node extends NodeTop {
         return "Node " + this.id_number;
     }
 
-    public void accept(Individual next_individual) {
+    public void accept(Individual next_individual, boolean completed) {
         /**
          * Accepts a new customer to the queue:
          * - remove previous exit date and blockage status
@@ -176,7 +184,7 @@ public class Node extends NodeTop {
         next_individual.is_blocked = false;
         next_individual.original_class = next_individual.customer_class;
         next_individual.queue_size_at_arrival = this.number_of_individuals;
-        this.individuals.get(next_individual.priority_class).add((Individual) next_individual);
+        this.individuals.get(next_individual.priority_class).add(next_individual);
         this.number_of_individuals += 1;
         this.begin_service_if_possible_accept(next_individual);
 //        this.simulation.statetracker.change_state_accept(this, (Individual) next_individual);
@@ -197,15 +205,17 @@ public class Node extends NodeTop {
         }
     }
 
-//    public void addNewServers(int num_servers) {
-//        /**
-//         * Add appropriate amount of servers for the given shift.
-//         */
-//        for (int i = 0; i < num_servers; i++) {
-//            this.highest_id += 1;
+    public void addNewServers(int num_servers) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        /**
+         * Add appropriate amount of servers for the given shift.
+         */
+        for (int i = 0; i < num_servers; i++) {
+            this.highest_id += 1;
 //            this.servers.add(new ServerType(this, this.highest_id, this.now));
-//        }
-//    }
+            this.servers.add(this.simulation.server_class.getDeclaredConstructor(Node.class, Integer.class, Double.class).newInstance(this, this.highest_id, this.getNow()));
+
+        }
+    }
 
     public void attachServer(Server server, Individual individual) {
         /**
@@ -251,6 +261,130 @@ public class Node extends NodeTop {
         }
     }
 
+    public void beginServiceIfPossibleRelease(Individual nextIndividual, Server newlyFreeServer) {
+        /*
+         * Begins the service of the next individual (at point
+         * of previous individual's release)
+         *   - check if there are any interrupted individuals
+         *     left to restart service
+         *   - give an arrival date and service time
+         *   - give a start date and end date
+         *   - attach server to individual
+         */
+        if (newlyFreeServer != null && this.servers.contains(newlyFreeServer)) {
+            if (this.number_interrupted_individuals > 0) {
+                this.beginInterruptedIndividualsService(newlyFreeServer);
+            } else {
+                Individual ind = this.chooseNextCustomer();
+                if (ind != null) {
+                    this.attachServer(newlyFreeServer, ind);
+                    ind.service_start_date = this.getNow();
+                    this.giveIndividualAServiceTime(ind);
+                    ind.service_end_date = this.increment_time(ind.service_start_date, ind.service_time);
+                    this.number_in_service += 1;
+                    this.resetClassChange(ind);
+                    newlyFreeServer.next_end_service_date = ind.service_end_date;
+                }
+            }
+        }
+    }
+
+
+    public void beginServiceIfPossibleChangeShift() {
+        /*
+         * If there are free servers after a shift change:
+         *   - restart interrupted customers' services
+         *   - begin service of any waiting customers
+         *     - give a start date and end date
+         *     - attach servers to individual
+         */
+        List<Server> freeServers = this.servers.stream().filter(s -> !s.busy).collect(Collectors.toList());
+        for (Server srvr : freeServers) {
+            if (this.number_interrupted_individuals > 0) {
+                this.beginInterruptedIndividualsService(srvr);
+            } else {
+                Individual ind = this.chooseNextCustomer();
+                if (ind != null) {
+                    this.attachServer(srvr, ind);
+                    ind.service_start_date = this.getNow();
+                    this.giveIndividualAServiceTime(ind);
+                    ind.service_end_date = this.increment_time(ind.service_start_date, ind.service_time);
+                    this.number_in_service += 1;
+                    this.resetClassChange(ind);
+                    srvr.next_end_service_date = ind.service_end_date;
+                }
+            }
+        }
+    }
+
+    public void giveIndividualAServiceTime(Individual individual) {
+        /*
+         * Gives a service time to an individual, either a new
+         * service time, or after pre-emption.
+         */
+        if (individual.service_time == -1) {
+            individual.service_time = this.get_service_time(individual);
+        } else {
+            this.giveServiceTimeAfterPreemption(individual);
+        }
+    }
+
+    public Individual chooseNextCustomer() {
+        /*
+         * Chooses which customer will be next to be served.
+         */
+        for (List<Individual> priorityIndividuals : this.individuals) {
+            List<Individual> waitingIndividuals = priorityIndividuals.stream().filter(ind -> ind.server == null).collect(Collectors.toList());
+            if (!waitingIndividuals.isEmpty()) {
+                return this.service_discipline.choose(waitingIndividuals);
+            }
+        }
+        return null;
+    }
+
+
+    public void beginInterruptedIndividualsService(Server srvr) {
+        /*
+         * Restarts the next interrupted individual's service (by
+         * resampling service time)
+         */
+        Individual ind = this.interrupted_individuals.getFirst();
+        if (ind.is_blocked) {
+            Node nodeBlockedTo = this.simulation.nodes.get(ind.destination);
+            ind.destination = -1;
+//            nodeBlockedTo.blocked_queue.remove(new Pair<>(this.idNumber, ind.idNumber));
+            nodeBlockedTo.blocked_queue.remove(new HashMap<Integer, Integer>() {{
+                put(id_number, ind.id_number);
+            }});
+            nodeBlockedTo.len_blocked_queue -= 1;
+            ind.is_blocked = false;
+        }
+        this.attachServer(srvr, ind);
+        this.giveServiceTimeAfterPreemption(ind);
+        ind.service_start_date = this.getNow();
+        ind.service_end_date = this.getNow() + ind.service_time;
+        ind.interrupted = false;
+        this.number_in_service += 1;
+        srvr.next_end_service_date = ind.service_end_date;
+        this.interrupted_individuals.remove(ind);
+        this.number_interrupted_individuals -= 1;
+    }
+
+    public void giveServiceTimeAfterPreemption(Individual individual) {
+        /*
+         * Either resample, restart or resume service time where it was left off
+         */
+        if (individual.service_time_s.equals("resample")) {
+            individual.service_time = this.get_service_time(individual);
+        }
+        if (individual.service_time_s.equals("restart")) {
+            individual.service_time = individual.original_service_time;
+        }
+        if (individual.service_time_s.equals("resume")) {
+            individual.service_time = individual.time_left;
+        }
+    }
+
     public Server find_free_server(Individual ind) {
         /**
          * Finds a free server.
@@ -289,7 +423,6 @@ public class Node extends NodeTop {
             next_individual = nextEvent.keySet().stream().toList().getFirst().keySet().stream().toList().getFirst();
             ;
         } else {
-            System.out.println(possible_next_events.toString());
             Map<List<Individual>, Double> nextEndService = possible_next_events.getOrDefault("end_service", new HashMap<>() {{
                 put(null, Double.POSITIVE_INFINITY);
             }});
@@ -531,7 +664,10 @@ public class Node extends NodeTop {
         Map<String, String> record = new HashMap<>();
         record.put("id_number", String.valueOf(individual.id_number));
         record.put("server_id", String.valueOf(serverId));
+        record.put("node_id", String.valueOf(id_number));
         record.put("arrival_date", String.valueOf(individual.arrival_date));
+        record.put("service_time", String.valueOf(individual.service_end_date - individual.service_start_date));
+        record.put("queue_size_at_arrival", String.valueOf(individual.queue_size_at_arrival));
         record.put("type", "service");
 
 //        DataRecord record = new DataRecord(
@@ -569,7 +705,9 @@ public class Node extends NodeTop {
         Map<String, String> record = new HashMap<>();
         record.put("id_number", String.valueOf(individual.id_number));
         record.put("server_id", String.valueOf(server_id));
+        record.put("node_id", String.valueOf(id_number));
         record.put("arrival_date", String.valueOf(individual.arrival_date));
+        record.put("queue_size_at_arrival", String.valueOf(individual.queue_size_at_arrival));
         record.put("type", "interrupted service");
 
 //        DataRecord record = new DataRecord(
@@ -600,7 +738,9 @@ public class Node extends NodeTop {
 
         Map<String, String> record = new HashMap<>();
         record.put("id_number", String.valueOf(individual.id_number));
+        record.put("node_id", String.valueOf(id_number));
         record.put("arrival_date", String.valueOf(individual.arrival_date));
+        record.put("queue_size_at_arrival", String.valueOf(individual.queue_size_at_arrival));
         record.put("type", "renege");
 
         individual.data_records.add(record);
@@ -614,6 +754,7 @@ public class Node extends NodeTop {
 
         Map<String, String> record = new HashMap<>();
         record.put("id_number", String.valueOf(individual.id_number));
+        record.put("node_id", String.valueOf(id_number));
         record.put("arrival_date", String.valueOf(individual.arrival_date));
         record.put("type", recordType);
 
@@ -681,16 +822,16 @@ public class Node extends NodeTop {
             newlyFreeServer = nextIndividual.server;
             detatch_server(newlyFreeServer, nextIndividual);
         }
-//        resetIndividualAttributes(nextIndividual);
+        resetIndividualAttributes(nextIndividual);
 //        simulation.statetracker.changeStateRelease(this, nextNode, nextIndividual, nextIndividual.is_blocked);
-//        beginServiceIfPossibleRelease(nextIndividual, newlyFreeServer);
-        nextNode.accept(nextIndividual);
+        beginServiceIfPossibleRelease(nextIndividual, newlyFreeServer);
+        nextNode.accept(nextIndividual, false);
         releaseBlockedIndividual();
     }
 
     public void releaseBlockedIndividual() {
         if (len_blocked_queue > 0 && number_of_individuals < node_capacity) {
-            Node nodeToReceiveFrom = simulation.nodes.get(blocked_queue.getFirst().getFirst());
+            Node nodeToReceiveFrom = simulation.nodes.get(blocked_queue.getFirst().keySet().stream().toList().getFirst());
             int individualToReceiveIndex = nodeToReceiveFrom.getAllIndividuals().stream().map(i -> i.id_number).toList().indexOf(blocked_queue.getFirst().get(1));
             Individual individualToReceive = nodeToReceiveFrom.getAllIndividuals().get(individualToReceiveIndex);
             blocked_queue.removeFirst();
@@ -719,7 +860,7 @@ public class Node extends NodeTop {
         write_reneging_record(renegingIndividual);
 //        resetIndividualAttributes(renegingIndividual);
 //        simulation.statetracker.changeStateRenege(this, nextNode, renegingIndividual, false);
-        nextNode.accept(renegingIndividual);
+        nextNode.accept(renegingIndividual, false);
         releaseBlockedIndividual();
     }
 
@@ -732,13 +873,14 @@ public class Node extends NodeTop {
     }
 
 
-    public void haveEvent() {
+    public void haveEvent() throws Exception {
+        System.out.println("Event: " + next_event_type);
         switch (next_event_type) {
-//            case "end_service" -> finishService();
-//            case "shift_change" -> changeShift();
+            case "end_service" -> finishService();
+            case "shift_change" -> changeShift();
             case "renege" -> renege();
             case "class_change" -> changeCustomerClassWhileWaiting();
-//            case "slotted_service" -> slottedService();
+            case "slotted_service" -> slottedService();
         }
     }
 
@@ -753,8 +895,156 @@ public class Node extends NodeTop {
         if (nextNode.number_of_individuals < nextNode.node_capacity) {
             release(nextIndividual, nextNode);
         } else {
-//            blockIndividual(nextIndividual, nextNode);
+            blockIndividual(nextIndividual, nextNode);
         }
+    }
+
+    public void blockIndividual(Individual individual, Node nextNode) {
+        /*
+         * Blocks the individual from entering the next node:
+         *   - change is_blocked attribute
+         *   - update state tracker
+         *   - add information to the next node's blocked queue
+         *   - update deadlock detector
+         *   - inform simulation that there are unchecked
+         *     blockages for deadlock detection
+         */
+        individual.is_blocked = true;
+//        this.simulation.stateTracker.changeStateBlock(this, nextNode, individual);
+        nextNode.blocked_queue.add(new HashMap<>() {{
+            put(id_number, individual.id_number);
+        }});
+        nextNode.len_blocked_queue += 1;
+//        this.simulation.deadlockDetector.actionAtBlockage(individual, nextNode);
+        this.simulation.unchecked_blockage = true;
+    }
+
+    public void changeShift() throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+        /*
+         * Implement a server shift change:
+         *  - adds / deletes servers, or indicates which servers should go off duty
+         *  - begin any new services if free servers
+         */
+        this.schedule.getNextShift();
+        this.next_shift_change = this.schedule.nextShiftChangeDate;
+        this.c = this.schedule.c;
+        this.takeServersOffDuty(this.schedule.preemption);
+        this.addNewServers(this.schedule.c);
+        this.beginServiceIfPossibleChangeShift();
+    }
+
+    public void takeServersOffDuty(String preemption) {
+        /*
+         * Gathers servers that should be deleted.
+         */
+        if (preemption == null) {
+            List<Server> toDelete = new ArrayList<>();
+            for (Server srvr : this.servers) {
+                srvr.shift_end = this.next_event_date;
+                if (srvr.busy) {
+                    srvr.offduty = true;
+                } else {
+                    toDelete.add(srvr);
+                }
+            }
+            for (Server obs : toDelete) {
+                this.kill_server(obs);
+            }
+        } else {
+            List<Server> toDelete = new ArrayList<>(this.servers);
+            for (Server s : this.servers) {
+                s.shift_end = this.next_event_date;
+                if (s.cust != null) {
+                    this.interruptService(s.cust);
+                }
+            }
+            this.sortInterruptedIndividuals();
+            for (Server obs : toDelete) {
+                this.kill_server(obs);
+            }
+        }
+
+    }
+
+    public void sortInterruptedIndividuals() {
+        /*
+         * Sorts the list of interrupted individuals by priority class and arrival date.
+         */
+        this.interrupted_individuals.sort(Comparator.comparing(Individual::getPriority_class).thenComparing(Individual::getArrival_date));
+    }
+
+    public void interruptService(Individual individual) {
+        /*
+         * Interrupts the service of an individual and places them in an
+         * interrupted queue, and writes an interruption record for them.
+         */
+        this.interrupted_individuals.add(individual);
+        individual.interrupted = true;
+        this.number_interrupted_individuals += 1;
+        individual.original_service_time = individual.service_time;
+        this.write_interruption_record(individual);
+        individual.original_service_start_date = individual.service_start_date;
+        individual.service_start_date = -1;
+        individual.time_left = individual.service_end_date - this.getNow();
+        individual.service_time_s = this.schedule.preemption;
+        individual.service_end_date = -1;
+        this.number_in_service -= 1;
+    }
+
+    public void slottedService() {
+        /*
+         * Allows only a set amount of customers to have service at the exact
+         * time the method is called.
+         */
+        int numberOfSlottedServices = this.findNumberOfSlottedServices();
+        this.interruptSlottedServices();
+        for (int i = 0; i < numberOfSlottedServices; i++) {
+            Individual ind;
+            if (this.number_interrupted_individuals > 0) {
+                ind = this.interrupted_individuals.getFirst();
+                this.interrupted_individuals.remove(ind);
+                this.number_interrupted_individuals -= 1;
+            } else {
+                ind = this.chooseNextCustomer();
+            }
+            if (ind != null) {
+                ind.service_start_date = this.getNow();
+                this.giveIndividualAServiceTime(ind);
+                ind.service_end_date = this.getNow() + ind.service_time;
+//                ind.server = true;
+                this.number_in_service += 1;
+                this.resetClassChange(ind);
+            }
+        }
+        ((Slotted) this.schedule).getNextSlot();
+    }
+
+    public void interruptSlottedServices() {
+        /*
+         * Finds the amount of customers that need their slotted services interrupted
+         * due to not enough capacity at the current slot, and interrupt their services
+         */
+        if (this.schedule.capacitated && this.schedule.preemption != null) {
+            int numberToInterrupt = this.number_in_service - this.schedule.slotSize;
+            if (numberToInterrupt > 0) {
+                List<Individual> indsToInterrupt = this.getAllIndividuals().stream().filter(ind -> ind.service_start_date != -1).sorted(
+                        Comparator.comparing(Individual::getPriority_class).thenComparing(Individual::getArrival_date).reversed()
+                ).limit(numberToInterrupt).toList();
+                for (Individual ind : indsToInterrupt) {
+                    this.interruptService(ind);
+                }
+            }
+        }
+    }
+
+    public int findNumberOfSlottedServices() {
+        /*
+         * Finds the number of slotted services to start in this slot
+         */
+        if (this.schedule.capacitated) {
+            return Math.min(Math.max(this.schedule.slotSize - this.number_in_service, 0), this.getAllIndividuals().size());
+        }
+        return Math.min(this.schedule.slotSize, this.getAllIndividuals().size());
     }
 
     public Node nextNode(Individual ind) throws Exception {
@@ -886,6 +1176,20 @@ public class Node extends NodeTop {
                 preempt(individualToPreempt, individual);
             }
         }
+    }
+
+    public void resetIndividualAttributes(Individual individual) {
+        /*
+         * Resets the attributes of an individual
+         */
+        individual.arrival_date = -1;
+        individual.service_time = -1;
+        individual.service_start_date = -1;
+        individual.service_end_date = -1;
+        individual.exit_date = -1;
+        individual.queue_size_at_arrival = -1;
+        individual.queue_size_at_departure = -1;
+        individual.destination = -1;
     }
 
 

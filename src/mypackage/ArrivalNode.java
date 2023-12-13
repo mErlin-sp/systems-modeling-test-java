@@ -76,7 +76,7 @@ public class ArrivalNode extends Node {
             double rndNum = Math.random();
             if (rndNum < nextNode.baulking_functions.get(this.next_class).baulking_function(nextNode.number_of_individuals)) {
                 this.recordBaulk(nextNode, nextIndividual);
-                this.simulation.nodes.getLast().accept(nextIndividual);
+                this.simulation.nodes.getLast().accept(nextIndividual,false);
             } else {
                 this.send_individual(nextNode, nextIndividual);
             }
@@ -217,7 +217,7 @@ public class ArrivalNode extends Node {
          */
         if (nextNode.number_of_individuals >= nextNode.node_capacity) {
             this.record_rejection(nextNode, nextIndividual);
-            this.simulation.nodes.getLast().accept(nextIndividual);
+            this.simulation.nodes.getLast().accept(nextIndividual,false);
         } else {
             this.decideBaulk(nextNode, nextIndividual);
         }
@@ -229,7 +229,7 @@ public class ArrivalNode extends Node {
          */
         this.numberOfAcceptedIndividuals += 1;
         this.numberOfAcceptedIndividualsPerClass.put(nextIndividual.customer_class, this.numberOfAcceptedIndividualsPerClass.get(nextIndividual.customer_class) + 1);
-        nextNode.accept(nextIndividual);
+        nextNode.accept(nextIndividual,false);
     }
 
     public void update_next_event_date() {

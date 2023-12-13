@@ -10,9 +10,15 @@ public class Individual {
     public double original_service_time;
     public double original_service_start_date;
     public int route;
+
+    public double getArrival_date() {
+        return arrival_date;
+    }
+
     double arrival_date, reneging_date;
     double service_start_date;
     double service_time;
+    String service_time_s;
     double service_end_date;
     double exit_date;
     int id_number;
@@ -20,6 +26,11 @@ public class Individual {
     String customer_class;
     String previous_class;
     String next_class;
+
+    public int getPriority_class() {
+        return priority_class;
+    }
+
     int priority_class;
     int prev_priority_class;
     String original_class;
@@ -30,7 +41,7 @@ public class Individual {
     int destination;
     boolean interrupted = false;
     int node;
-     Simulation simulation;
+    Simulation simulation;
 
     public Individual(int id_number, String customer_class, int priority_class, Simulation simulation) {
         this.id_number = id_number;

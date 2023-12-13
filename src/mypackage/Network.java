@@ -12,7 +12,7 @@ class ServiceCentre {
     double priorityPreempt;
     int psThreshold;
     PriorityFunction serverPriorityFunction;
-    Object serviceDiscipline;
+    ServiceDiscipline serviceDiscipline;
     boolean classChangeTime;
     boolean reneging;
 
@@ -23,7 +23,7 @@ class ServiceCentre {
             double priorityPreempt,
             int psThreshold,
             PriorityFunction serverPriorityFunction,
-            Object serviceDiscipline
+            ServiceDiscipline serviceDiscipline
     ) {
         this.numberOfServers = numberOfServers;
         this.queueingCapacity = queueingCapacity;

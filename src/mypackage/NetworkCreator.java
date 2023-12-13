@@ -109,7 +109,7 @@ public class NetworkCreator {
                     preemptPriorities.get(nd),
                     (int) ((List<?>) params.get("ps_thresholds")).get(nd),
                     ((List<PriorityFunction>)params.get("server_priority_functions")).get(nd),
-                    ((List<?>) params.get("service_disciplines")).get(nd)));
+                    List::getFirst));
         }
 
 
