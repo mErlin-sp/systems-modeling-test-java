@@ -3,6 +3,8 @@ package mypackage;
 import java.util.function.BinaryOperator;
 
 public class Distribution {
+    public Simulation simulation;
+
     /**
      * A general distribution from which all other distributions will inherit.
      */
@@ -12,11 +14,11 @@ public class Distribution {
         return "Distribution";
     }
 
-    public double sample(double t, int ind) {
+    public double sample(double t, Individual ind) {
         return 0.0;
     }
 
-    private double _sample(double t, int ind) {
+    double _sample(double t, Individual ind) {
         /**
          * Performs validity checks before sampling.
          */
@@ -81,7 +83,7 @@ class Exponential extends Distribution {
     }
 
     @Override
-    public double sample(double t, int ind) {
+    public double sample(double t, Individual ind) {
         return expovariate(rate);
     }
 
@@ -113,7 +115,7 @@ class Deterministic extends Distribution {
     }
 
     @Override
-    public double sample(double t, int ind) {
+    public double sample(double t, Individual ind) {
         return value;
     }
 }
@@ -140,7 +142,7 @@ class CombinedDistribution extends Distribution {
     }
 
     @Override
-    public double sample(double t, int ind) {
+    public double sample(double t, Individual ind) {
         double s1 = d1.sample(t, ind);
         double s2 = d2.sample(t, ind);
         return operator.apply(s1, s2);

@@ -1,12 +1,13 @@
 package mypackage;
 
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 public class RunSim {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
         Map<String, Object> params = new HashMap<>();
 
         params.put("arrival_distributions", new ArrayList<>() {{
@@ -54,8 +55,8 @@ public class RunSim {
 
         Network network = NetworkCreator.createNetwork(params);
 
-//        Simulation simulation = new Simulation(network);
-//        simulation.simulateUntilMaxTime(1000, true);
+        Simulation simulation = new Simulation(network);
+        simulation.simulateUntilMaxTime(1000, true);
 //
 //        // Access the collected data
 //        SimulationRecords records = simulation.getAllRecords();

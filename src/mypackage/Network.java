@@ -9,9 +9,9 @@ class ServiceCentre {
     int numberOfServers;
     int queueingCapacity;
     List<Double> classChangeMatrix;
-    boolean priorityPreempt;
+    double priorityPreempt;
     int psThreshold;
-    Object serverPriorityFunction;
+    PriorityFunction serverPriorityFunction;
     Object serviceDiscipline;
     boolean classChangeTime;
     boolean reneging;
@@ -20,9 +20,9 @@ class ServiceCentre {
             int numberOfServers,
             int queueingCapacity,
             List<Double> classChangeMatrix,
-            boolean priorityPreempt,
+            double priorityPreempt,
             int psThreshold,
-            Object serverPriorityFunction,
+            PriorityFunction serverPriorityFunction,
             Object serviceDiscipline
     ) {
         this.numberOfServers = numberOfServers;
@@ -36,27 +36,31 @@ class ServiceCentre {
     }
 }
 
+interface RoutingFunction {
+    Integer route(Individual ind);
+}
+
 class CustomerClass {
-    List<QueueInterface> arrivalDistributions;
-    List<QueueInterface> serviceDistributions;
-    List<?> batchingDistributions;
-    Map<String, List<List<Double>>> routing;
+    List<Distribution> arrivalDistributions;
+    List<Distribution> serviceDistributions;
+    List<Distribution> batchingDistributions;
+    Map<Integer, RoutingFunction> routing;
     int priorityClass;
     List<?> baulkingFunctions;
-    List<?> renegingTimeDistributions;
-    List<?> renegingDestinations;
-    Map<String, ?> classChangeTimeDistributions;
+    List<Distribution> renegingTimeDistributions;
+    List<Integer> renegingDestinations;
+    Map<String, Distribution> classChangeTimeDistributions;
 
     public CustomerClass(
-            List<QueueInterface> arrivalDistributions,
-            List<QueueInterface> serviceDistributions,
+            List<Distribution> arrivalDistributions,
+            List<Distribution> serviceDistributions,
             Map<String, List<List<Double>>> routing,
             int priorityClass,
             List<?> baulkingFunctions,
-            List<?> batchingDistributions,
-            List<?> renegingTimeDistributions,
-            List<?> renegingDestinations,
-            Map<String, ?> classChangeTimeDistributions
+            List<Distribution> batchingDistributions,
+            List<Distribution> renegingTimeDistributions,
+            List<Integer> renegingDestinations,
+            Map<String, Distribution> classChangeTimeDistributions
     ) {
         this.arrivalDistributions = arrivalDistributions;
         this.serviceDistributions = serviceDistributions;
@@ -70,14 +74,14 @@ class CustomerClass {
     }
 }
 
-class Network {
+public class Network {
     List<ServiceCentre> serviceCentres;
     Map<String, CustomerClass> customerClasses;
-    int numberOfNodes;
+     public int numberOfNodes;
     int numberOfClasses;
     List<String> customerClassNames;
     int numberOfPriorityClasses;
-    Map<String, Integer> priorityClassMapping;
+    Map<String,Integer> priorityClassMapping;
 
     boolean processBased;
 

@@ -64,15 +64,15 @@ public class NetworkCreator {
         int numberOfClasses = (int) params.get("number_of_classes");
         int numberOfNodes = (int) params.get("number_of_nodes");
 
-        List<Boolean> preemptPriorities = new ArrayList<>();
+        List<Double> preemptPriorities = new ArrayList<>();
         if (params.containsKey("priority_classes") && params.get("priority_classes") instanceof Map<?, ?>) {
-            preemptPriorities = Collections.nCopies(numberOfNodes, false);
+            preemptPriorities = Collections.nCopies(numberOfNodes, 0.0);
 //            preemptPriorities = Collections.singletonList(Stream.generate(() -> false)
 //                    .limit(numberOfNodes)
 //                    .toList());
         }
         if (params.containsKey("priority_classes") && params.get("priority_classes") instanceof List<?>) {
-            preemptPriorities = ((List<List<Boolean>>) params.get("priority_classes")).get(1);
+            preemptPriorities = ((List<List<Double>>) params.get("priority_classes")).get(1);
             params.put("priority_classes", Collections.singletonMap("clss", ((List<String>) params.get("customer_class_names")).stream().map(clss -> (List<?>) ((Map<?, ?>) ((List<?>) params.get("priority_classes")).getFirst()).get(clss))));
 
             List<List<Boolean>> priorityClasses = new ArrayList<>();
@@ -106,9 +106,9 @@ public class NetworkCreator {
         for (int nd = 0; nd < numberOfNodes; nd++) {
             nodes.add(new ServiceCentre((int) ((List<?>) params.get("number_of_servers")).get(nd), (int) ((List<?>) params.get("queue_capacities")).get(nd),
                     classChangeMatrices.get(nd),
-                    (Boolean) preemptPriorities.get(nd),
+                    preemptPriorities.get(nd),
                     (int) ((List<?>) params.get("ps_thresholds")).get(nd),
-                    ((List<?>) params.get("server_priority_functions")).get(nd),
+                    ((List<PriorityFunction>)params.get("server_priority_functions")).get(nd),
                     ((List<?>) params.get("service_disciplines")).get(nd)));
         }
 
@@ -116,37 +116,33 @@ public class NetworkCreator {
         for (String clssName : (List<String>) params.get("customer_class_names")) {
             if (((Map<String, ?>) params.get("routing")).values().stream().allMatch(f -> f instanceof QueueInterface)) {
                 classes.put(clssName, new CustomerClass(
-                        (List<QueueInterface>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
-                        (List<QueueInterface>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
+                        (List<Distribution>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
+                        (List<Distribution>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
                         ((Map<String, List<List<Double>>>) params.get("routing")),
                         (int) ((Map<?, ?>) params.get("priority_classes")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("reneging_time_distributions")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
-                        classChangeTimeDistributions.get(clssName)
+                        (List<BaulkingFunction>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
+                        (List<Distribution>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
+                        (List<Distribution>) ((Map<?, ?>) params.get("reneging_time_distributions")).get(clssName),
+                        (List<Integer>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
+                        (Map<String, Distribution>) classChangeTimeDistributions.get(clssName)
                 ));
             } else {
                 classes.put(clssName, new CustomerClass(
-                        (List<QueueInterface>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
-                        (List<QueueInterface>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
+                        (List<Distribution>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
+                        (List<Distribution>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
                         Collections.singletonMap("routing", ((Map<String, List<List<Double>>>) params.get("routing")).get(clssName)),
                         (int) ((Map<?, ?>) params.get("priority_classes")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("reneging_time_distributions")).get(clssName),
-                        (List<?>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
-                        classChangeTimeDistributions.get(clssName)
+                        (List<BaulkingFunction>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
+                        (List<Distribution>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
+                        (List<Distribution>) ((Map<?, ?>) params.get("reneging_time_distributions")).get(clssName),
+                        (List<Integer>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
+                        (Map<String, Distribution>)classChangeTimeDistributions.get(clssName)
                 ));
             }
         }
 
         Network n = new Network(nodes, classes);
-        if (((Map<String, List<List<?>>>) params.get("routing")).values().stream().allMatch(f -> f instanceof Function)) {
-            n.processBased = true;
-        } else {
-            n.processBased = false;
-        }
+        n.processBased = ((Map<String, List<List<?>>>) params.get("routing")).values().stream().allMatch(f -> f instanceof Function);
         return n;
     }
 
@@ -200,7 +196,7 @@ public class NetworkCreator {
 //        params.put("customer_class_names", classNames);
 
         Map<String, Object> defaultDict = new HashMap<>();
-        defaultDict.put("name", "Simulation");
+        defaultDict.put("name", "mypackage.Simulation");
         defaultDict.put("routing", classNames.stream().collect(Collectors.toMap(Function.identity(), c -> Collections.singletonList(Collections.singletonList(0.0)))));
         defaultDict.put("number_of_nodes", ((List<?>) params.get("number_of_servers")).size());
         defaultDict.put("number_of_classes", classNames.size());
