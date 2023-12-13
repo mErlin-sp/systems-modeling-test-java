@@ -44,9 +44,9 @@ class CustomerClass {
     List<Distribution> arrivalDistributions;
     List<Distribution> serviceDistributions;
     List<Distribution> batchingDistributions;
-    Map<Integer, RoutingFunction> routing;
+    List<List<Double>> routing;
     int priorityClass;
-    List<?> baulkingFunctions;
+    List<BaulkingFunction> baulkingFunctions;
     List<Distribution> renegingTimeDistributions;
     List<Integer> renegingDestinations;
     Map<String, Distribution> classChangeTimeDistributions;
@@ -54,9 +54,9 @@ class CustomerClass {
     public CustomerClass(
             List<Distribution> arrivalDistributions,
             List<Distribution> serviceDistributions,
-            Map<String, List<List<Double>>> routing,
+            List<List<Double>>  routing,
             int priorityClass,
-            List<?> baulkingFunctions,
+            List<BaulkingFunction> baulkingFunctions,
             List<Distribution> batchingDistributions,
             List<Distribution> renegingTimeDistributions,
             List<Integer> renegingDestinations,

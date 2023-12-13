@@ -16,12 +16,12 @@ public class Simulation {
     private List<Class<? extends Node>> NodeTypes;
     private Class<? extends Node> ArrivalNodeType;
     private int number_of_priority_classes;
-     List<? extends Node> transitive_nodes;
-    public List<? extends Node> nodes;
-    private List<? extends Node> active_nodes;
+    List<Node> transitive_nodes;
+    public List<Node> nodes;
+    private List<Node> active_nodes;
     Map<Integer, Map<String, Distribution>> inter_arrival_times;
     Map<Integer, Map<String, Distribution>> service_times;
-     Map<Integer, Map<String, Distribution>> batch_sizes;
+    Map<Integer, Map<String, Distribution>> batch_sizes;
     //    private StateTracker statetracker;
     private Map<String, Double> times_dictionary;
     private Map<String, Double> times_to_deadlock;
@@ -45,10 +45,10 @@ public class Simulation {
         this.number_of_priority_classes = this.network.numberOfPriorityClasses;
         this.transitive_nodes = new ArrayList<>();
         for (int i = 0; i < this.NodeTypes.size(); i++) {
-            this.transitive_nodes.add(this.NodeTypes.get(i + 1).getDeclaredConstructor(Simulation.class).newInstance(i + 1, this));
+            this.transitive_nodes.add(this.NodeTypes.get(i).getDeclaredConstructor(int.class, Simulation.class, Class.class).newInstance(i + 1, this, this.NodeTypes.get(i)));
         }
         this.nodes = new ArrayList<>();
-        this.nodes.add(this.ArrivalNodeType.getDeclaredConstructor(Simulation.class).newInstance(this));
+        this.nodes.add(this.ArrivalNodeType.getDeclaredConstructor(Simulation.class, Class.class).newInstance(this, ArrivalNodeType));
         this.nodes.addAll(this.transitive_nodes);
         this.nodes.add(new ExitNode());
 

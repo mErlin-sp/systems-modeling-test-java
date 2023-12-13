@@ -114,23 +114,23 @@ public class NetworkCreator {
 
 
         for (String clssName : (List<String>) params.get("customer_class_names")) {
-            if (((Map<String, ?>) params.get("routing")).values().stream().allMatch(f -> f instanceof QueueInterface)) {
+//            if (((Map<String, ?>) params.get("routing")).values().stream().allMatch(f -> f instanceof QueueInterface)) {
+//                classes.put(clssName, new CustomerClass(
+//                        (List<Distribution>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
+//                        (List<Distribution>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
+//                        ((Map<Integer, RoutingFunction>) params.get("routing")),
+//                        (int) ((Map<?, ?>) params.get("priority_classes")).get(clssName),
+//                        (List<BaulkingFunction>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
+//                        (List<Distribution>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
+//                        (List<Distribution>) ((Map<?, ?>) params.get("reneging_time_distributions")).get(clssName),
+//                        (List<Integer>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
+//                        (Map<String, Distribution>) classChangeTimeDistributions.get(clssName)
+//                ));
+//            } else {
                 classes.put(clssName, new CustomerClass(
                         (List<Distribution>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
                         (List<Distribution>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
-                        ((Map<String, List<List<Double>>>) params.get("routing")),
-                        (int) ((Map<?, ?>) params.get("priority_classes")).get(clssName),
-                        (List<BaulkingFunction>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
-                        (List<Distribution>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
-                        (List<Distribution>) ((Map<?, ?>) params.get("reneging_time_distributions")).get(clssName),
-                        (List<Integer>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
-                        (Map<String, Distribution>) classChangeTimeDistributions.get(clssName)
-                ));
-            } else {
-                classes.put(clssName, new CustomerClass(
-                        (List<Distribution>) (((Map<String, List<?>>) params.get("arrival_distributions")).get(clssName)),
-                        (List<Distribution>) (((Map<String, List<?>>) params.get("service_distributions")).get(clssName)),
-                        Collections.singletonMap("routing", ((Map<String, List<List<Double>>>) params.get("routing")).get(clssName)),
+                        ((List<List<Double>>)params.get("routing")),
                         (int) ((Map<?, ?>) params.get("priority_classes")).get(clssName),
                         (List<BaulkingFunction>) ((Map<?, ?>) params.get("baulking_functions")).get(clssName),
                         (List<Distribution>) ((Map<?, ?>) params.get("batching_distributions")).get(clssName),
@@ -138,11 +138,11 @@ public class NetworkCreator {
                         (List<Integer>) ((Map<?, ?>) params.get("reneging_destinations")).get(clssName),
                         (Map<String, Distribution>)classChangeTimeDistributions.get(clssName)
                 ));
-            }
+//            }
         }
 
         Network n = new Network(nodes, classes);
-        n.processBased = ((Map<String, List<List<?>>>) params.get("routing")).values().stream().allMatch(f -> f instanceof Function);
+        n.processBased = false;
         return n;
     }
 
@@ -160,12 +160,12 @@ public class NetworkCreator {
 //            params.put("routing", Collections.singletonMap("Customer", rtngMat));
 //        }
 
-        if (params.containsKey("routing")) {
-            if (((List<List<Double>>) params.get("routing")).stream().allMatch(f -> f instanceof List<?>)) {
-                List<List<Double>> rtngMat = (List<List<Double>>) params.get("routing");
-                params.put("routing", Collections.singletonMap("Customer", rtngMat));
-            }
-        }
+//        if (params.containsKey("routing")) {
+//            if (((List<List<Double>>) params.get("routing")).stream().allMatch(f -> f instanceof List<?>)) {
+//                List<List<Double>> rtngMat = (List<List<Double>>) params.get("routing");
+//                params.put("routing", Collections.singletonMap("Customer", rtngMat));
+//            }
+//        }
 
         if (params.containsKey("baulking_functions") && params.get("baulking_functions") instanceof List) {
             List<?> blkFncs = (List<?>) params.get("baulking_functions");

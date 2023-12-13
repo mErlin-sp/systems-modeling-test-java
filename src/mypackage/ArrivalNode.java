@@ -3,7 +3,7 @@ package mypackage;
 import java.util.HashMap;
 import java.util.Map;
 
-public abstract class ArrivalNode extends Node {
+public class ArrivalNode extends Node {
     /**
      * Class for the arrival node of the network.
      * <p>
@@ -136,9 +136,9 @@ public abstract class ArrivalNode extends Node {
                     priorityClass,
                     this.simulation
             );
-            if (this.simulation.network.processBased) {
-                nextIndividual.route = this.simulation.network.customerClasses.get(nextIndividual.customer_class).routing.get(this.next_node - 1).route(nextIndividual);
-            }
+//            if (this.simulation.network.processBased) {
+//                nextIndividual.route = this.simulation.network.customerClasses.get(nextIndividual.customer_class).routing.get(this.next_node - 1).route(nextIndividual);
+//            }
             Node nextNode = this.simulation.transitive_nodes.get(this.next_node - 1);
             this.release_individual(nextNode, nextIndividual);
         }
@@ -153,8 +153,8 @@ public abstract class ArrivalNode extends Node {
         this.find_next_event_date();
     }
 
-
-    public double increment_time(Double original, Double increment) {
+    @Override
+    public double increment_time(double original, double increment) {
         /**
          * Increments the original time by the increment.
          */
@@ -238,6 +238,4 @@ public abstract class ArrivalNode extends Node {
          */
         return;
     }
-
-    public abstract double increment_time(double original, double increment);
 }

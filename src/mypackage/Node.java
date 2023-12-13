@@ -21,14 +21,14 @@ public class Node extends NodeTop {
     boolean slotted;
     double next_event_date;
     private double next_shift_change;
-     int node_capacity;
+    int node_capacity;
     private Map<String, List<Double>> transition_row;
     private Map<String, Map<String, Double>> class_change;
     private List<List<Individual>> individuals;
-     int number_of_individuals;
+    int number_of_individuals;
     private int number_in_service;
     int id_number;
-     Map<String, BaulkingFunction> baulking_functions;
+    Map<String, BaulkingFunction> baulking_functions;
     private List<Double> overtime;
     private List<List<Integer>> blocked_queue;
     private int len_blocked_queue;
@@ -50,7 +50,13 @@ public class Node extends NodeTop {
 
     public Node(int id_, Simulation simulation, Class<? extends NodeTop> nodeType) {
         super(nodeType);
+        System.out.println("id: " + id_);
         this.simulation = simulation;
+
+        if (nodeType == ArrivalNode.class || nodeType == ExitNode.class) {
+            return;
+        }
+
         ServiceCentre node = this.simulation.network.serviceCentres.get(id_ - 1);
 
         this.server_priority_function = node.serverPriorityFunction;
@@ -82,9 +88,9 @@ public class Node extends NodeTop {
         if (!this.simulation.network.processBased) {
             this.transition_row = new HashMap<>();
             for (String clss : this.simulation.network.customerClassNames) {
-                List<Double> routing = this.simulation.network.customerClasses.get(clss).routing.get(id_ - 1).stream().flatMap(List::stream).collect(Collectors.toList());
+                List<Double> routing = this.simulation.network.customerClasses.get(clss).routing.get(id_ - 1);
                 routing.add(1.0 - routing.stream().mapToDouble(Double::doubleValue).sum());
-                this.transition_row.put(clss, routing);
+                transition_row.put(clss, routing);
             }
         }
 //        this.class_change = node.classChangeMatrix;
@@ -280,9 +286,13 @@ public class Node extends NodeTop {
             Map<Map<List<Individual>, Double>, String> nextEvent = decideNextEvent();
             next_event_type = nextEvent.values().stream().toList().getFirst();
             next_event_date = nextEvent.keySet().stream().toList().getFirst().values().stream().toList().getFirst();
-            next_individual = nextEvent.keySet().stream().toList().getFirst().keySet().stream().toList().getFirst();;
+            next_individual = nextEvent.keySet().stream().toList().getFirst().keySet().stream().toList().getFirst();
+            ;
         } else {
-            Map<List<Individual>, Double> nextEndService = possible_next_events.get("end_service");
+            System.out.println(possible_next_events.toString());
+            Map<List<Individual>, Double> nextEndService = possible_next_events.getOrDefault("end_service", new HashMap<>() {{
+                put(null, Double.POSITIVE_INFINITY);
+            }});
             next_event_date = nextEndService.values().stream().toList().getFirst();
             next_individual = nextEndService.keySet().stream().toList().getFirst();
             next_event_type = "end_service";
@@ -748,22 +758,22 @@ public class Node extends NodeTop {
     }
 
     public Node nextNode(Individual ind) throws Exception {
-        if (!simulation.network.processBased) {
-            String customerClass = ind.customer_class;
-            return Util.randomChoice(simulation.nodes.subList(1, simulation.nodes.size()), transition_row.get(customerClass));
-        } else {
-            if (ind.route.isEmpty() || !ind.route.getFirst().equals(id_number)) {
-                throw new Exception("Individual process route sent to wrong node");
-            }
-            ind.route.removeFirst();
-            int nextNodeNumber;
-            if (ind.route.isEmpty()) {
-                nextNodeNumber = -1;
-            } else {
-                nextNodeNumber = ind.route.getFirst();
-            }
-            return simulation.nodes.get(nextNodeNumber);
-        }
+//        if (!simulation.network.processBased) {
+        String customerClass = ind.customer_class;
+        return Util.randomChoice(simulation.nodes.subList(1, simulation.nodes.size()), transition_row.get(customerClass));
+//        } else {
+//            if (ind.route.isEmpty() || !ind.route.getFirst().equals(id_number)) {
+//                throw new Exception("Individual process route sent to wrong node");
+//            }
+//            ind.route.removeFirst();
+//            int nextNodeNumber;
+//            if (ind.route.isEmpty()) {
+//                nextNodeNumber = -1;
+//            } else {
+//                nextNodeNumber = ind.route.getFirst();
+//            }
+//            return simulation.nodes.get(nextNodeNumber);
+//        }
     }
 
     public Individual decideBetweenSimultaneousIndividuals() {
